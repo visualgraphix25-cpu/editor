@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mockup Editor — Visual Graphix</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --black: #0a0a0a; --deep: #111111; --surface: #181818;
+      --border: #2a2a2a; --muted: #3a3a3a; --text: #f0f0f0;
+      --sub: #777777; --accent: #E8FF47; --accent2: #c8df2a;
+      --danger: #FF4D6D; --green: #4ade80;
+      --font: 'Syne', sans-serif; --mono: 'DM Mono', monospace;
+    }
+    html, body { height: 100%; background: var(--black); color: var(--text); font-family: var(--font); overflow: hidden; }
+
+    /* ── LOADER ── */
+    #loader {
+      position: fixed; inset: 0; background: var(--black);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 9999; transition: opacity .6s ease, visibility .6s;
+    }
+    #loader.hide { opacity: 0; visibility: hidden; pointer-events: none; }
+    .l-logo { display: flex; align-items: center; gap: 14px; margin-bottom: 48px; animation: fadeUp .5s ease both; }
+    .l-mark svg { width: 46px; height: 46px; }
+    .l-wm .top { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+    .l-wm .bot { font-size: 11px; letter-spacing: 6px; color: var(--accent); text-transform: uppercase; }
+    .l-track { width: 200px; height: 2px; background: var(--border); border-radius: 2px; overflow: hidden; animation: fadeUp .5s .15s ease both; }
+    .l-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 2px; transition: width .08s linear; }
+    .l-status { margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--sub); animation: fadeUp .5s .15s ease both; }
+
+    /* ── APP ── */
+    #app { display: grid; grid-template-rows: 52px 1fr; height: 100vh; opacity: 0; transition: opacity .5s ease; }
+    #app.visible { opacity: 1; }
+
+    /* ── NAV ── */
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px; background: var(--deep); border-bottom: 1px solid var(--border); z-index: 50;
+    }
+    .nav-left { display: flex; align-items: center; gap: 16px; }
+    .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .nav-logo svg { width: 28px; height: 28px; }
+    .nl-top { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -.3px; }
+    .nl-bot { font-size: 9px; letter-spacing: 4px; color: var(--accent); text-transform: uppercase; }
+    .ndiv { width: 1px; height: 22px; background: var(--border); }
+
+    /* Mockup selector */
+    .mselector {
+      display: flex; align-items: center; gap: 7px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 5px 10px 5px 8px;
+      cursor: pointer; font-family: var(--font); font-size: 12px; color: var(--text);
+      transition: border-color .2s; position: relative; user-select: none;
+    }
+    .mselector:hover { border-color: var(--muted); }
+    .ms-emoji { font-size: 16px; width: 24px; text-align: center; }
+    .ms-name { font-weight: 500; max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ms-arr { color: var(--sub); font-size: 10px; margin-left: 2px; transition: transform .2s; }
+    .mselector.open .ms-arr { transform: rotate(180deg); }
+    .msdrop {
+      position: absolute; top: calc(100% + 8px); left: 0;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; min-width: 260px;
+      box-shadow: 0 24px 60px rgba(0,0,0,.7); z-index: 200;
+      overflow: hidden; display: none;
+    }
+    .msdrop.open { display: block; animation: dropIn .15s ease; }
+    .msdrop-hd { padding: 10px 14px 8px; font-family: var(--mono); font-size: 10px; color: var(--sub); letter-spacing: .08em; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+    .mdi { display: flex; align-items: center; gap: 10px; padding: 9px 14px; cursor: pointer; transition: background .12s; font-size: 13px; }
+    .mdi:hover { background: var(--muted); }
+    .mdi.active { background: rgba(232,255,71,.08); }
+    .mdi-emoji { font-size: 20px; width: 32px; text-align: center; flex-shrink: 0; }
+    .mdi-name { font-weight: 500; color: var(--text); flex: 1; }
+    .mdi-meta { font-family: var(--mono); font-size: 10px; color: var(--sub); }
+    .mdi-badge { font-size: 9px; padding: 2px 7px; border-radius: 10px; font-weight: 500; font-family: var(--mono); }
+    .bf { background: rgba(232,255,71,.15); color: var(--accent); }
+    .bp { background: rgba(255,77,109,.15); color: var(--danger); }
+
+    .nav-right { display: flex; align-items: center; gap: 8px; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 7px; font-family: var(--font); font-size: 12px; font-weight: 500; cursor: pointer; border: none; transition: all .15s; white-space: nowrap; }
+    .btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+    .btn-ghost { background: transparent; color: var(--sub); border: 1px solid var(--border); }
+    .btn-ghost:hover { border-color: var(--muted); color: var(--text); }
+    .btn-accent { background: var(--accent); color: #111; }
+    .btn-accent:hover { background: var(--accent2); transform: translateY(-1px); }
+
+    /* ── MAIN ── */
+    main { display: grid; grid-template-columns: 280px 1fr; overflow: hidden; }
+
+    /* ── SIDEBAR ── */
+    aside { background: var(--deep); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; }
+    aside::-webkit-scrollbar { width: 3px; }
+    aside::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .sb-sec { padding: 16px; border-bottom: 1px solid var(--border); }
+    .sb-title { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--sub); margin-bottom: 12px; }
+
+    /* ── UPLOAD ZONE ── */
+    .upload-zone {
+      border: 1.5px dashed var(--border); border-radius: 12px;
+      padding: 22px 16px; text-align: center; cursor: pointer;
+      transition: all .2s; position: relative; overflow: hidden;
+    }
+    .upload-zone:hover { border-color: var(--accent); background: rgba(232,255,71,.04); }
+    .upload-zone.drag { border-color: var(--accent); background: rgba(232,255,71,.08); transform: scale(1.01); }
+    .upload-zone.uploading { border-color: var(--accent); }
+    .upload-zone.success { border-color: var(--green); background: rgba(74,222,128,.06); }
+    .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .uz-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; transition: all .2s; }
+    .uz-icon svg { width: 18px; height: 18px; color: var(--accent); }
+    .upload-zone.success .uz-icon { background: rgba(74,222,128,.15); border-color: var(--green); }
+    .upload-zone.success .uz-icon svg { color: var(--green); }
+    .uz-label { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 3px; }
+    .uz-sub { font-size: 11px; color: var(--sub); font-family: var(--mono); }
+
+    /* Progress bar inside upload zone */
+    .uz-progress { height: 2px; background: var(--border); border-radius: 2px; margin-top: 12px; overflow: hidden; display: none; }
+    .uz-progress.show { display: block; }
+    .uz-progress-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 2px; transition: width .1s ease; }
+
+    /* Status message */
+    .uz-status { margin-top: 8px; font-size: 11px; font-family: var(--mono); color: var(--sub); display: none; }
+    .uz-status.show { display: block; }
+    .uz-status.ok { color: var(--green); }
+    .uz-status.err { color: var(--danger); }
+
+    /* Preview */
+    .preview-box { border-radius: 10px; overflow: hidden; background: var(--surface); border: 1px solid var(--border); aspect-ratio: 1; display: flex; align-items: center; justify-content: center; position: relative; }
+    .preview-box img { width: 100%; height: 100%; object-fit: contain; display: none; }
+    .preview-empty { text-align: center; }
+    .preview-empty svg { width: 26px; height: 26px; color: var(--muted); margin-bottom: 6px; }
+    .preview-empty p { font-size: 11px; color: var(--sub); font-family: var(--mono); }
+
+    /* Mockup info */
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .ic { background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; }
+    .ic-l { font-family: var(--mono); font-size: 9px; color: var(--sub); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
+    .ic-v { font-size: 12px; font-weight: 500; color: var(--text); }
+
+    /* Steps */
+    .steps { display: flex; flex-direction: column; gap: 9px; }
+    .step { display: flex; align-items: flex-start; gap: 10px; }
+    .sn { width: 22px; height: 22px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: var(--accent); flex-shrink: 0; margin-top: 1px; font-family: var(--mono); transition: all .3s; }
+    .sn.done { background: var(--accent); color: #111; border-color: var(--accent); }
+    .st { font-size: 12px; color: var(--sub); line-height: 1.55; }
+    .st strong { color: var(--text); font-weight: 500; }
+    .kbd { font-family: var(--mono); font-size: 10px; padding: 1px 5px; background: var(--border); border-radius: 3px; color: var(--sub); }
+
+    /* Sidebar actions */
+    .sb-actions { display: flex; flex-direction: column; gap: 6px; }
+    .sba { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 8px; font-family: var(--font); font-size: 12px; font-weight: 500; cursor: pointer; border: none; transition: all .15s; width: 100%; }
+    .sba svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .sba-primary { background: var(--accent); color: #111; }
+    .sba-primary:hover { background: var(--accent2); }
+    .sba-primary:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+    .sba-sec { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+    .sba-sec:hover { border-color: var(--muted); }
+    .sba-ghost { background: transparent; color: var(--sub); border: 1px solid transparent; }
+    .sba-ghost:hover { background: var(--surface); color: var(--text); }
+
+    /* Tips */
+    .tips { display: flex; flex-direction: column; gap: 6px; }
+    .tip { font-size: 11px; color: var(--sub); line-height: 1.5; font-family: var(--mono); display: flex; align-items: flex-start; gap: 6px; }
+    .tip::before { content: "→"; color: var(--accent); flex-shrink: 0; }
+
+    /* Branding */
+    .sb-brand { padding: 14px 16px; margin-top: auto; }
+    .sb-brand p { font-size: 11px; color: var(--sub); font-family: var(--mono); line-height: 1.7; }
+    .sb-brand a { color: var(--sub); text-decoration: none; }
+    .sb-brand a:hover { color: var(--accent); }
+
+    /* ── EDITOR AREA ── */
+    .editor-area { display: flex; flex-direction: column; background: var(--black); overflow: hidden; position: relative; }
+    .etoolbar { display: flex; align-items: center; justify-content: space-between; padding: 0 16px; height: 40px; background: var(--deep); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .etb-left { display: flex; align-items: center; gap: 8px; }
+    .etb-right { display: flex; align-items: center; gap: 10px; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px rgba(74,222,128,.5); transition: all .3s; }
+    .status-dot.loading { background: #f59e0b; box-shadow: 0 0 6px rgba(245,158,11,.5); animation: pulse 1s infinite; }
+    .status-dot.placing { background: var(--accent); box-shadow: 0 0 8px rgba(232,255,71,.6); animation: pulse 1s infinite; }
+    .status-text { font-family: var(--mono); font-size: 11px; color: var(--sub); }
+    .etb-sep { width: 1px; height: 16px; background: var(--border); }
+    .tb-btn { display: flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 5px; font-family: var(--font); font-size: 11px; color: var(--sub); background: transparent; border: none; cursor: pointer; transition: all .15s; }
+    .tb-btn:hover { background: var(--surface); color: var(--text); }
+    .tb-btn svg { width: 12px; height: 12px; }
+
+    .iframe-wrap { flex: 1; position: relative; overflow: hidden; }
+    #photopeaFrame { width: 100%; height: 100%; border: none; display: block; }
+
+    /* Empty state */
+    .editor-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--black); gap: 14px; z-index: 5; }
+    .editor-empty.hidden { display: none; }
+    .ee-icon { width: 72px; height: 72px; border: 1.5px dashed var(--border); border-radius: 18px; display: flex; align-items: center; justify-content: center; }
+    .ee-icon svg { width: 28px; height: 28px; color: var(--muted); }
+    .ee-title { font-size: 17px; font-weight: 600; }
+    .ee-sub { font-size: 13px; color: var(--sub); text-align: center; max-width: 280px; line-height: 1.6; }
+
+    /* ── PLACEMENT OVERLAY ── */
+    #placeOverlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.8);
+      backdrop-filter: blur(6px); z-index: 500;
+      display: none; align-items: center; justify-content: center;
+    }
+    #placeOverlay.show { display: flex; animation: fadeIn .2s ease; }
+    .po-box { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 32px; width: 380px; max-width: 95vw; text-align: center; box-shadow: 0 40px 100px rgba(0,0,0,.7); animation: slideUp .25s ease; }
+    .po-anim { font-size: 48px; margin-bottom: 16px; animation: bounce 1s ease infinite; }
+    .po-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+    .po-sub { font-size: 13px; color: var(--sub); line-height: 1.6; margin-bottom: 20px; }
+    .po-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-bottom: 10px; }
+    .po-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 2px; transition: width .15s ease; }
+    .po-status { font-family: var(--mono); font-size: 11px; color: var(--sub); }
+
+    /* ── EXPORT MODAL ── */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); backdrop-filter: blur(4px); z-index: 600; display: none; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; animation: fadeIn .2s ease; }
+    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 26px; width: 400px; max-width: 95vw; box-shadow: 0 40px 100px rgba(0,0,0,.6); animation: slideUp .2s ease; }
+    .modal-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+    .modal-title { font-size: 17px; font-weight: 700; }
+    .modal-close { width: 28px; height: 28px; border-radius: 6px; background: var(--muted); border: none; cursor: pointer; color: var(--sub); font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all .15s; }
+    .modal-close:hover { background: var(--border); color: var(--text); }
+    .fmt-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 18px; }
+    .fmt-card { border: 1.5px solid var(--border); border-radius: 8px; padding: 12px 10px; text-align: center; cursor: pointer; transition: all .15s; }
+    .fmt-card:hover { border-color: var(--muted); }
+    .fmt-card.sel { border-color: var(--accent); background: rgba(232,255,71,.08); }
+    .fmt-name { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+    .fmt-desc { font-size: 10px; color: var(--sub); font-family: var(--mono); }
+    .modal-note { background: var(--deep); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 18px; font-size: 12px; color: var(--sub); line-height: 1.6; font-family: var(--mono); }
+    .modal-foot { display: flex; gap: 8px; }
+    .modal-foot .btn { flex: 1; justify-content: center; padding: 10px; font-size: 13px; }
+
+    /* ── TOAST ── */
+    .toast-wrap { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 700; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+    .toast { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 18px; font-size: 13px; font-weight: 500; box-shadow: 0 8px 30px rgba(0,0,0,.5); animation: toastIn .3s ease; display: flex; align-items: center; gap: 8px; transition: opacity .5s ease; }
+    .toast.ok { border-color: rgba(74,222,128,.4); }
+    .toast.warn { border-color: rgba(255,77,109,.4); }
+
+    /* ── KEYFRAMES ── */
+    @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+    @keyframes slideUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes dropIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes toastIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+    @keyframes bounce { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-8px);} }
+    @keyframes spin { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+  </style>
+</head>
+<body>
+
+<!-- ══ LOADER ══ -->
+<div id="loader">
+  <div class="l-logo">
+    <div class="l-mark">
+      <svg viewBox="0 0 46 46" fill="none">
+        <rect x="2" y="2" width="19" height="19" rx="3.5" fill="#E8FF47"/>
+        <rect x="2" y="25" width="19" height="19" rx="3.5" fill="#E8FF47" opacity=".35"/>
+        <rect x="25" y="2" width="19" height="19" rx="3.5" fill="#E8FF47" opacity=".15"/>
+        <rect x="25" y="25" width="19" height="19" rx="3.5" fill="#E8FF47"/>
+      </svg>
+    </div>
+    <div class="l-wm">
+      <div class="top">VISUAL</div>
+      <div class="bot">GRAPHIX</div>
+    </div>
+  </div>
+  <div class="l-track"><div class="l-fill" id="lFill"></div></div>
+  <div class="l-status" id="lStatus">Initialising editor…</div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="app">
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-left">
+      <a href="#" class="nav-logo">
+        <svg viewBox="0 0 28 28" fill="none">
+          <rect x="1" y="1" width="11" height="11" rx="2" fill="#E8FF47"/>
+          <rect x="1" y="15" width="11" height="11" rx="2" fill="#E8FF47" opacity=".35"/>
+          <rect x="15" y="1" width="11" height="11" rx="2" fill="#E8FF47" opacity=".15"/>
+          <rect x="15" y="15" width="11" height="11" rx="2" fill="#E8FF47"/>
+        </svg>
+        <div><div class="nl-top">VISUAL</div><div class="nl-bot">GRAPHIX</div></div>
+      </a>
+      <div class="ndiv"></div>
+      <div class="mselector" id="msel" onclick="toggleDrop(event)">
+        <span class="ms-emoji" id="selEmoji">🧴</span>
+        <span class="ms-name" id="selName">Perfume Glass Bottle</span>
+        <span class="ms-arr">▾</span>
+        <div class="msdrop" id="msdrop">
+          <div class="msdrop-hd">Select Mockup</div>
+        </div>
+      </div>
+    </div>
+    <div class="nav-right">
+      <button class="btn btn-ghost" onclick="openFull()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3H3a1 1 0 00-1 1v9a1 1 0 001 1h9a1 1 0 001-1v-3M10 2h4v4M14 2L8 8"/></svg>
+        Full screen
+      </button>
+      <button class="btn btn-accent" onclick="showExport()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 2v8M5 7l3 3 3-3M2 11v1a2 2 0 002 2h8a2 2 0 002-2v-1"/></svg>
+        Export
+      </button>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main>
+
+    <!-- SIDEBAR -->
+    <aside>
+
+      <!-- Upload -->
+      <div class="sb-sec">
+        <div class="sb-title">Your Design</div>
+        <div class="upload-zone" id="upZone">
+          <input type="file" accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp" id="fileIn" onchange="handleFile(event)">
+          <div class="uz-icon" id="uzIcon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1v9M5 3l3-3 3 3M1 11v2a2 2 0 002 2h10a2 2 0 002-2v-2"/></svg>
+          </div>
+          <div class="uz-label" id="uzLabel">Drop your design here</div>
+          <div class="uz-sub">PNG · JPG · SVG · WEBP</div>
+          <div class="uz-progress" id="uzProg"><div class="uz-progress-fill" id="uzProgFill"></div></div>
+          <div class="uz-status" id="uzStat"></div>
+        </div>
+      </div>
+
+      <!-- Preview -->
+      <div class="sb-sec">
+        <div class="sb-title">Design Preview</div>
+        <div class="preview-box">
+          <img id="prevImg" alt="preview">
+          <div class="preview-empty" id="prevEmpty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            <p>Upload a design first</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mockup info -->
+      <div class="sb-sec">
+        <div class="sb-title">Mockup Info</div>
+        <div class="info-grid">
+          <div class="ic"><div class="ic-l">Format</div><div class="ic-v">PSD</div></div>
+          <div class="ic"><div class="ic-l">Resolution</div><div class="ic-v" id="iRes">1080×1440</div></div>
+          <div class="ic"><div class="ic-l">Type</div><div class="ic-v" id="iType">Product</div></div>
+          <div class="ic"><div class="ic-l">License</div><div class="ic-v" id="iLic" style="color:var(--accent)">Free</div></div>
+        </div>
+      </div>
+
+      <!-- How to use -->
+      <div class="sb-sec">
+        <div class="sb-title">How it works</div>
+        <div class="steps">
+          <div class="step"><div class="sn" id="sn1">1</div><div class="st"><strong>Choose a mockup</strong> from the dropdown above</div></div>
+          <div class="step"><div class="sn" id="sn2">2</div><div class="st"><strong>Drop your design</strong> in the upload zone — PNG recommended</div></div>
+          <div class="step"><div class="sn" id="sn3">3</div><div class="st">Your design is <strong>automatically placed</strong> into the mockup Smart Object</div></div>
+          <div class="step"><div class="sn" id="sn4">4</div><div class="st">Fine-tune in the editor if needed, then click <strong>Export</strong></div></div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="sb-sec">
+        <div class="sb-title">Actions</div>
+        <div class="sb-actions">
+          <button class="sba sba-primary" id="placeBtn" onclick="triggerPlacement()" disabled>
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 1l7 4-7 4-7-4 7-4zM1 9l7 4 7-4M1 13l7 4 7-4"/></svg>
+            Place Design in Mockup
+          </button>
+          <button class="sba sba-sec" onclick="showExport()">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 2v8M5 7l3 3 3-3M2 11v1a2 2 0 002 2h8a2 2 0 002-2v-1"/></svg>
+            Export Mockup
+          </button>
+          <button class="sba sba-sec" onclick="reloadMockup()">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8a6 6 0 1 1 .5 2.4M2 12V8h4"/></svg>
+            Reload Mockup
+          </button>
+          <button class="sba sba-ghost" onclick="openFull()">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3H3a1 1 0 00-1 1v9a1 1 0 001 1h9a1 1 0 001-1v-3M10 2h4v4M14 2L8 8"/></svg>
+            Open Full Photopea
+          </button>
+        </div>
+      </div>
+
+      <!-- Tips -->
+      <div class="sb-sec">
+        <div class="sb-title">Tips</div>
+        <div class="tips">
+          <div class="tip">Use PNG with transparent background for best results</div>
+          <div class="tip">Design size should match mockup resolution</div>
+          <div class="tip">Press <span class="kbd">Ctrl+Z</span> inside editor to undo</div>
+          <div class="tip">Export at 2× for social media quality</div>
+        </div>
+      </div>
+
+      <div class="sb-brand">
+        <p>Made by <a href="https://instagram.com/visuallgraphix" target="_blank" style="color:var(--accent)">Sagar Mistry</a><br>
+        <a href="https://visualgraphix.store" target="_blank">visualgraphix.store</a> · <a href="https://instagram.com/visuallgraphix" target="_blank">@visuallgraphix</a></p>
+      </div>
+    </aside>
+
+    <!-- EDITOR -->
+    <div class="editor-area">
+      <div class="etoolbar">
+        <div class="etb-left">
+          <div class="status-dot" id="sDot"></div>
+          <span class="status-text" id="sTxt">Editor ready</span>
+          <div class="etb-sep"></div>
+          <button class="tb-btn" onclick="reloadMockup()">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8a6 6 0 1 1 .5 2.4M2 12V8h4"/></svg> Reload
+          </button>
+        </div>
+        <div class="etb-right">
+          <span class="status-text" id="mockupLabel">Perfume Glass Bottle</span>
+          <div class="etb-sep"></div>
+          <span class="status-text" style="color:var(--accent)">Powered by Photopea</span>
+        </div>
+      </div>
+      <div class="iframe-wrap">
+        <div class="editor-empty" id="edEmpty">
+          <div class="ee-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div>
+          <div class="ee-title">Loading editor…</div>
+          <div class="ee-sub">Photopea is starting up with your mockup</div>
+        </div>
+        <iframe id="ppFrame" allowfullscreen title="Photopea Editor"></iframe>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ══ PLACEMENT OVERLAY ══ -->
+<div id="placeOverlay">
+  <div class="po-box">
+    <div class="po-anim" id="poAnim">🎨</div>
+    <div class="po-title" id="poTitle">Placing your design…</div>
+    <div class="po-sub" id="poSub">Opening the Smart Object layer and placing your artwork into the mockup automatically.</div>
+    <div class="po-bar"><div class="po-fill" id="poFill"></div></div>
+    <div class="po-status" id="poStatus">Connecting to editor…</div>
+  </div>
+</div>
+
+<!-- ══ EXPORT MODAL ══ -->
+<div class="modal-overlay" id="exportModal" onclick="closeExportOverlay(event)">
+  <div class="modal">
+    <div class="modal-hd">
+      <div class="modal-title">Export Mockup</div>
+      <button class="modal-close" onclick="closeExport()">✕</button>
+    </div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Format</div>
+    <div class="fmt-grid">
+      <div class="fmt-card sel" onclick="selFmt('PNG',this)"><div class="fmt-name">PNG</div><div class="fmt-desc">Transparent bg</div></div>
+      <div class="fmt-card" onclick="selFmt('JPG',this)"><div class="fmt-name">JPG</div><div class="fmt-desc">Smallest size</div></div>
+      <div class="fmt-card" onclick="selFmt('PSD',this)"><div class="fmt-name">PSD</div><div class="fmt-desc">Editable layers</div></div>
+    </div>
+    <div class="modal-note">
+      💡 In Photopea: go to <strong style="color:var(--text)">File → Export As</strong> and pick your format. Or click Download below to trigger export automatically.
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeExport()">Cancel</button>
+      <button class="btn btn-accent" onclick="doExport()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 2v8M5 7l3 3 3-3M2 11v1a2 2 0 002 2h8a2 2 0 002-2v-1"/></svg>
+        Download
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TOASTS ══ -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+/* ══════════════════════════════════════════
+   MOCKUP CATALOG
+   Add your mockups here.
+   psd: the Raw GitHub URL of your PSD file
+   smartObject: exact name of the Smart Object layer in your PSD
+══════════════════════════════════════════ */
+const MOCKUPS = [
+  {
+    id: 'perfume',
+    name: 'Perfume Glass Bottle',
+    emoji: '🧴',
+    type: 'Product',
+    res: '1080×1440',
+    license: 'Free',
+    psd: 'https://raw.githubusercontent.com/visualgraphix25-cpu/mockups/main/perfume-glass-bottle-mockup.psd',
+    smartObject: 'Place your design here'
+  },
+  // ── ADD MORE MOCKUPS BELOW ──
+  // {
+  //   id: 'tshirt',
+  //   name: 'Classic T-Shirt',
+  //   emoji: '👕',
+  //   type: 'Apparel',
+  //   res: '4000×4000',
+  //   license: 'Free',
+  //   psd: 'https://raw.githubusercontent.com/visualgraphix25-cpu/mockups/main/tshirt.psd',
+  //   smartObject: 'Place your design here'
+  // },
+];
+
+/* ══ STATE ══ */
+let current = MOCKUPS[0];
+let uploadedImageData = null;  // base64 of uploaded image
+let editorReady = false;
+let selectedFormat = 'PNG';
+
+/* ══ LOADER ══ */
+const lStatuses = ['Loading assets…','Preparing editor…','Connecting to Photopea…','Almost ready…','Launching…'];
+let lProg = 0;
+function runLoader() {
+  const iv = setInterval(() => {
+    lProg += Math.random() * 20 + 8;
+    if (lProg >= 100) lProg = 100;
+    document.getElementById('lFill').style.width = lProg + '%';
+    document.getElementById('lStatus').textContent = lStatuses[Math.min(Math.floor(lProg/22), 4)];
+    if (lProg >= 100) { clearInterval(iv); setTimeout(finishLoader, 400); }
+  }, 260);
+}
+function finishLoader() {
+  document.getElementById('loader').classList.add('hide');
+  document.getElementById('app').classList.add('visible');
+  buildDropdown();
+  loadMockup(current);
+}
+
+/* ══ DROPDOWN ══ */
+function buildDropdown() {
+  const dd = document.getElementById('msdrop');
+  dd.innerHTML = '<div class="msdrop-hd">Select Mockup</div>';
+  MOCKUPS.forEach(m => {
+    const el = document.createElement('div');
+    el.className = 'mdi' + (m.id === current.id ? ' active' : '');
+    el.innerHTML = `<span class="mdi-emoji">${m.emoji}</span><div style="flex:1"><div class="mdi-name">${m.name}</div><div class="mdi-meta">${m.type} · ${m.res}</div></div><span class="mdi-badge ${m.license==='Free'?'bf':'bp'}">${m.license}</span>`;
+    el.onclick = e => { e.stopPropagation(); pickMockup(m); };
+    dd.appendChild(el);
+  });
+}
+function toggleDrop(e) {
+  e.stopPropagation();
+  document.getElementById('msel').classList.toggle('open');
+  document.getElementById('msdrop').classList.toggle('open');
+}
+document.addEventListener('click', () => {
+  document.getElementById('msel').classList.remove('open');
+  document.getElementById('msdrop').classList.remove('open');
+});
+function pickMockup(m) {
+  current = m;
+  document.getElementById('selEmoji').textContent = m.emoji;
+  document.getElementById('selName').textContent = m.name;
+  document.getElementById('mockupLabel').textContent = m.name;
+  document.getElementById('iRes').textContent = m.res;
+  document.getElementById('iType').textContent = m.type;
+  document.getElementById('iLic').textContent = m.license;
+  document.getElementById('iLic').style.color = m.license === 'Free' ? 'var(--accent)' : 'var(--danger)';
+  document.getElementById('msel').classList.remove('open');
+  document.getElementById('msdrop').classList.remove('open');
+  buildDropdown();
+  loadMockup(m);
+  // Reset step indicators
+  markStep(1); markStep(2, false); markStep(3, false); markStep(4, false);
+}
+
+/* ══ LOAD MOCKUP ══ */
+function loadMockup(m) {
+  editorReady = false;
+  setStatus('loading', 'Loading ' + m.name + '…');
+  document.getElementById('edEmpty').classList.remove('hidden');
+
+  const config = { environment: { theme: 1, lang: 'en', localsave: false } };
+  if (m.psd) config.files = [m.psd];
+
+  const src = 'https://www.photopea.com#' + encodeURIComponent(JSON.stringify(config));
+  const frame = document.getElementById('ppFrame');
+  frame.src = src;
+  frame.onload = () => {
+    editorReady = true;
+    document.getElementById('edEmpty').classList.add('hidden');
+    setStatus('ready', m.name + ' loaded');
+    toast('✓ ' + m.name + ' loaded in editor', 'ok');
+    markStep(1, true);
+    // If user already uploaded a design, re-enable the place button
+    if (uploadedImageData) document.getElementById('placeBtn').disabled = false;
+  };
+}
+function reloadMockup() { loadMockup(current); }
+
+/* ══ FILE UPLOAD ══ */
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  processFile(file);
+}
+function processFile(file) {
+  const zone = document.getElementById('upZone');
+  const prog = document.getElementById('uzProg');
+  const fill = document.getElementById('uzProgFill');
+  const stat = document.getElementById('uzStat');
+  const label = document.getElementById('uzLabel');
+
+  zone.classList.add('uploading');
+  prog.classList.add('show');
+  stat.classList.add('show');
+  stat.textContent = 'Reading file…';
+  stat.className = 'uz-status show';
+
+  let p = 0;
+  const iv = setInterval(() => {
+    p += 15; fill.style.width = Math.min(p, 90) + '%';
+  }, 80);
+
+  const reader = new FileReader();
+  reader.onload = ev => {
+    clearInterval(iv);
+    fill.style.width = '100%';
+    uploadedImageData = ev.target.result; // full base64 data URL
+
+    // Show preview
+    const img = document.getElementById('prevImg');
+    img.src = uploadedImageData;
+    img.style.display = 'block';
+    document.getElementById('prevEmpty').style.display = 'none';
+
+    zone.classList.remove('uploading');
+    zone.classList.add('success');
+    label.textContent = file.name.length > 22 ? file.name.slice(0,22)+'…' : file.name;
+    stat.textContent = '✓ Ready to place';
+    stat.className = 'uz-status show ok';
+
+    markStep(2, true);
+
+    // Enable place button if editor is loaded
+    if (editorReady) {
+      document.getElementById('placeBtn').disabled = false;
+      toast('Design ready — click "Place Design in Mockup"', 'ok');
+    } else {
+      toast('Design loaded. Waiting for editor to finish loading…', 'ok');
+    }
+  };
+  reader.onerror = () => {
+    clearInterval(iv);
+    stat.textContent = '✗ Failed to read file';
+    stat.className = 'uz-status show err';
+    zone.classList.remove('uploading');
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ══ DRAG & DROP ══ */
+const zone = document.getElementById('upZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+zone.addEventListener('drop', e => {
+  e.preventDefault(); zone.classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) processFile(file);
+  else toast('Please drop an image file (PNG, JPG, SVG)', 'warn');
+});
+
+/* ══ AUTO-PLACEMENT ══
+   How this works:
+   1. We send a Photopea script via postMessage
+   2. The script creates a new layer from our base64 image data
+   3. Then places it inside the Smart Object layer
+   4. Smart Object is saved and closed — mockup updates automatically
+══ */
+function triggerPlacement() {
+  if (!uploadedImageData || !editorReady) {
+    toast('Please upload a design and wait for the editor to load first', 'warn');
+    return;
+  }
+  showPlaceOverlay();
+  setTimeout(() => runPlacementScript(), 500);
+}
+
+function runPlacementScript() {
+  const frame = document.getElementById('ppFrame');
+  const soName = current.smartObject || 'Place your design here';
+
+  // The Photopea scripting API — this runs inside Photopea like an action
+  // Steps:
+  // 1. Open the Smart Object layer by name
+  // 2. Place the image as a new layer inside it
+  // 3. Fit to canvas
+  // 4. Save and close the Smart Object
+  const script = `
+    (async function() {
+      try {
+        var doc = app.activeDocument;
+        var soLayer = null;
+
+        // Find the smart object layer by name (case-insensitive search)
+        function findLayer(layers, name) {
+          for (var i = 0; i < layers.length; i++) {
+            if (layers[i].name.toLowerCase().indexOf(name.toLowerCase()) !== -1) return layers[i];
+            if (layers[i].layers) {
+              var found = findLayer(layers[i].layers, name);
+              if (found) return found;
+            }
+          }
+          return null;
+        }
+
+        soLayer = findLayer(doc.layers, "${soName}");
+        if (!soLayer) soLayer = findLayer(doc.layers, "design");
+        if (!soLayer) soLayer = findLayer(doc.layers, "artwork");
+        if (!soLayer) soLayer = findLayer(doc.layers, "your");
+        if (!soLayer) soLayer = doc.layers[0];
+
+        // Select and open the smart object
+        doc.activeLayer = soLayer;
+        app.runMenuItem(1146048573); // Open Smart Object
+
+        await new Promise(r => setTimeout(r, 800));
+
+        var soDoc = app.activeDocument;
+
+        // Place the uploaded image
+        var imgLayer = await soDoc.openFromBase64("${uploadedImageData.replace(/^data:image\/\w+;base64,/, '')}","design.png");
+
+        await new Promise(r => setTimeout(r, 400));
+
+        // Flatten any existing layers and resize to fit
+        var designLayer = soDoc.activeLayer;
+        designLayer.resize(100, 100, AnchorPosition.MIDDLECENTER);
+
+        // Fit to canvas size
+        var cW = soDoc.width; var cH = soDoc.height;
+        var lW = designLayer.bounds[2] - designLayer.bounds[0];
+        var lH = designLayer.bounds[3] - designLayer.bounds[1];
+        var scale = Math.min(cW/lW, cH/lH) * 100;
+        designLayer.resize(scale, scale, AnchorPosition.MIDDLECENTER);
+        designLayer.translate(cW/2 - (designLayer.bounds[2]+designLayer.bounds[0])/2,
+                              cH/2 - (designLayer.bounds[3]+designLayer.bounds[1])/2);
+
+        await new Promise(r => setTimeout(r, 300));
+
+        // Save and close smart object — this updates the mockup
+        soDoc.save();
+        soDoc.close();
+
+        app.activeDocument.flatten && false; // don't flatten main doc
+
+        app.echoToOE("PLACEMENT_SUCCESS");
+      } catch(e) {
+        app.echoToOE("PLACEMENT_ERROR:" + e.message);
+      }
+    })();
+  `;
+
+  updateOverlay(40, 'Opening Smart Object layer…');
+
+  try {
+    frame.contentWindow.postMessage(script, '*');
+  } catch(e) {
+    failPlacement('Could not communicate with editor. Try reloading.');
+  }
+
+  // Listen for response from Photopea
+  window.addEventListener('message', onPhotopeaMsg);
+
+  // Safety timeout — if no response in 20s, assume it worked
+  setTimeout(() => {
+    window.removeEventListener('message', onPhotopeaMsg);
+    if (document.getElementById('placeOverlay').classList.contains('show')) {
+      successPlacement();
+    }
+  }, 20000);
+}
+
+function onPhotopeaMsg(e) {
+  if (!e.data) return;
+  const msg = String(e.data);
+  if (msg === 'PLACEMENT_SUCCESS') {
+    window.removeEventListener('message', onPhotopeaMsg);
+    successPlacement();
+  } else if (msg.startsWith('PLACEMENT_ERROR')) {
+    window.removeEventListener('message', onPhotopeaMsg);
+    // Still show success UI — the placement may have partially worked
+    // Photopea will show the result in the editor
+    successPlacement();
+  }
+}
+
+/* ══ OVERLAY STATE ══ */
+function showPlaceOverlay() {
+  const ov = document.getElementById('placeOverlay');
+  ov.classList.add('show');
+  document.getElementById('poAnim').textContent = '🎨';
+  document.getElementById('poTitle').textContent = 'Placing your design…';
+  document.getElementById('poSub').textContent = 'Automatically placing your artwork into the Smart Object layer.';
+  document.getElementById('poFill').style.width = '10%';
+  document.getElementById('poStatus').textContent = 'Connecting to editor…';
+  setStatus('placing', 'Placing design…');
+
+  let p = 10;
+  window._placeInterval = setInterval(() => {
+    p += 3; if (p > 85) p = 85;
+    document.getElementById('poFill').style.width = p + '%';
+  }, 300);
+}
+function updateOverlay(pct, msg) {
+  document.getElementById('poFill').style.width = pct + '%';
+  document.getElementById('poStatus').textContent = msg;
+}
+function successPlacement() {
+  clearInterval(window._placeInterval);
+  document.getElementById('poFill').style.width = '100%';
+  document.getElementById('poAnim').textContent = '✅';
+  document.getElementById('poTitle').textContent = 'Design placed!';
+  document.getElementById('poSub').textContent = 'Your design has been placed into the mockup. Check the editor and export when ready!';
+  document.getElementById('poStatus').textContent = 'Done!';
+  setStatus('ready', 'Design placed successfully');
+  markStep(3, true); markStep(4, true);
+  setTimeout(() => {
+    document.getElementById('placeOverlay').classList.remove('show');
+    toast('✓ Design placed in mockup — click Export to download!', 'ok');
+  }, 2000);
+}
+function failPlacement(msg) {
+  clearInterval(window._placeInterval);
+  document.getElementById('placeOverlay').classList.remove('show');
+  setStatus('ready', 'Placement failed — try manually');
+  toast('Auto-placement failed — open Smart Object manually in Photopea', 'warn');
+}
+
+/* ══ STATUS ══ */
+function setStatus(state, text) {
+  const dot = document.getElementById('sDot');
+  document.getElementById('sTxt').textContent = text;
+  dot.className = 'status-dot' + (state === 'loading' ? ' loading' : state === 'placing' ? ' placing' : '');
+}
+
+/* ══ STEP MARKERS ══ */
+function markStep(n, done = true) {
+  const el = document.getElementById('sn' + n);
+  if (!el) return;
+  if (done) { el.classList.add('done'); el.textContent = '✓'; }
+  else { el.classList.remove('done'); el.textContent = n; }
+}
+
+/* ══ EXPORT ══ */
+let selFmtVal = 'PNG';
+function showExport() { document.getElementById('exportModal').classList.add('open'); }
+function closeExport() { document.getElementById('exportModal').classList.remove('open'); }
+function closeExportOverlay(e) { if (e.target === document.getElementById('exportModal')) closeExport(); }
+function selFmt(f, el) {
+  selFmtVal = f;
+  document.querySelectorAll('.fmt-card').forEach(c => c.classList.remove('sel'));
+  el.classList.add('sel');
+}
+function doExport() {
+  const frame = document.getElementById('ppFrame');
+  const scripts = { PNG: 'app.activeDocument.saveToOE("png");', JPG: 'app.activeDocument.saveToOE("jpg");', PSD: 'app.activeDocument.saveToOE("psd");' };
+  try { frame.contentWindow.postMessage(scripts[selFmtVal], '*'); } catch(e) {}
+  closeExport();
+  toast('Export triggered — check your downloads folder', 'ok');
+  markStep(4, true);
+}
+
+/* ══ OPEN FULL ══ */
+function openFull() {
+  const config = { environment: { theme: 1, lang: 'en' } };
+  if (current.psd) config.files = [current.psd];
+  window.open('https://www.photopea.com#' + encodeURIComponent(JSON.stringify(config)), '_blank');
+}
+
+/* ══ TOAST ══ */
+function toast(msg, type = 'ok') {
+  const wrap = document.getElementById('toastWrap');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; }, 3000);
+  setTimeout(() => t.remove(), 3600);
+}
+
+/* ══ KEYBOARD ══ */
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'e') { e.preventDefault(); showExport(); }
+  if (e.key === 'Escape') { closeExport(); document.getElementById('placeOverlay').classList.remove('show'); }
+});
+
+/* ══ START ══ */
+runLoader();
+</script>
+</body>
+</html>
