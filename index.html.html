@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mockup Editor — Visual Graphix</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --black:    #0a0a0a;
+      --deep:     #111111;
+      --surface:  #181818;
+      --border:   #2a2a2a;
+      --muted:    #3a3a3a;
+      --text:     #f0f0f0;
+      --sub:      #888888;
+      --accent:   #E8FF47;
+      --accent2:  #c8df2a;
+      --danger:   #FF4D6D;
+      --radius:   10px;
+      --font:     'Syne', sans-serif;
+      --mono:     'DM Mono', monospace;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--black);
+      color: var(--text);
+      font-family: var(--font);
+      overflow: hidden;
+    }
+
+    /* ─── LOADING SCREEN ─── */
+    #loader {
+      position: fixed; inset: 0;
+      background: var(--black);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 1000;
+      transition: opacity 0.6s ease, visibility 0.6s;
+    }
+    #loader.hide { opacity: 0; visibility: hidden; pointer-events: none; }
+
+    .loader-logo {
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 48px;
+      animation: fadeUp 0.6s ease both;
+    }
+    .loader-mark svg { width: 44px; height: 44px; }
+    .loader-wordmark { line-height: 1; }
+    .loader-wordmark .top { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; color: var(--text); }
+    .loader-wordmark .bot { font-size: 12px; font-weight: 400; letter-spacing: 5px; color: var(--accent); text-transform: uppercase; }
+
+    .loader-bar-wrap {
+      width: 220px;
+      animation: fadeUp 0.6s 0.2s ease both;
+    }
+    .loader-bar-track {
+      height: 2px; background: var(--border); border-radius: 2px; overflow: hidden;
+    }
+    .loader-bar-fill {
+      height: 100%; width: 0%; background: var(--accent); border-radius: 2px;
+      transition: width 0.05s linear;
+    }
+    .loader-status {
+      margin-top: 12px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--sub);
+      letter-spacing: 0.05em;
+    }
+
+    /* ─── APP SHELL ─── */
+    #app {
+      display: grid;
+      grid-template-rows: 52px 1fr;
+      height: 100vh;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+    #app.visible { opacity: 1; }
+
+    /* ─── TOP NAV ─── */
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px;
+      background: var(--deep);
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      z-index: 10;
+    }
+
+    .nav-left { display: flex; align-items: center; gap: 20px; }
+    .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .nav-logo svg { width: 28px; height: 28px; }
+    .nav-logo-text { line-height: 1; }
+    .nav-logo-text .top { font-size: 14px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
+    .nav-logo-text .bot { font-size: 9px; font-weight: 400; letter-spacing: 4px; color: var(--accent); text-transform: uppercase; }
+
+    .nav-divider { width: 1px; height: 24px; background: var(--border); }
+
+    .mockup-selector {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 5px 10px 5px 8px;
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: 12px;
+      color: var(--text);
+      transition: border-color 0.2s;
+      position: relative;
+    }
+    .mockup-selector:hover { border-color: var(--muted); }
+    .mockup-thumb {
+      width: 22px; height: 22px; border-radius: 4px;
+      background: var(--muted); overflow: hidden; flex-shrink: 0;
+    }
+    .mockup-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .mockup-selector-name { font-weight: 500; max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .selector-arrow { margin-left: 4px; color: var(--sub); font-size: 10px; }
+
+    /* Dropdown */
+    .mockup-dropdown {
+      position: absolute; top: calc(100% + 8px); left: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      min-width: 240px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      z-index: 200;
+      overflow: hidden;
+      display: none;
+    }
+    .mockup-dropdown.open { display: block; animation: dropIn 0.15s ease; }
+    .dropdown-header {
+      padding: 10px 14px 8px;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--sub);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+    }
+    .dropdown-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 14px; cursor: pointer;
+      transition: background 0.15s;
+      font-size: 13px;
+    }
+    .dropdown-item:hover { background: var(--muted); }
+    .dropdown-item.active { background: rgba(232,255,71,0.08); }
+    .dropdown-item.active .di-name { color: var(--accent); }
+    .di-thumb {
+      width: 32px; height: 32px; border-radius: 5px;
+      background: var(--muted); flex-shrink: 0; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+    .di-info { flex: 1; min-width: 0; }
+    .di-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+    .di-meta { font-family: var(--mono); font-size: 10px; color: var(--sub); margin-top: 1px; }
+    .di-badge {
+      font-size: 9px; padding: 2px 6px; border-radius: 4px;
+      font-family: var(--mono); letter-spacing: 0.04em;
+      font-weight: 500;
+    }
+    .badge-free { background: rgba(232,255,71,0.15); color: var(--accent); }
+    .badge-pro { background: rgba(255,77,109,0.15); color: var(--danger); }
+
+    .nav-right { display: flex; align-items: center; gap: 8px; }
+
+    .btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 7px;
+      font-family: var(--font); font-size: 12px; font-weight: 500;
+      cursor: pointer; border: none; transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn-ghost {
+      background: transparent; color: var(--sub);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { border-color: var(--muted); color: var(--text); }
+    .btn-accent {
+      background: var(--accent); color: #111;
+    }
+    .btn-accent:hover { background: var(--accent2); transform: translateY(-1px); }
+    .btn-accent:active { transform: translateY(0); }
+
+    .btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+    .kbd {
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 1px 5px;
+      background: var(--border);
+      border-radius: 3px;
+      color: var(--sub);
+    }
+
+    /* ─── MAIN AREA ─── */
+    main {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      overflow: hidden;
+    }
+
+    /* ─── SIDEBAR ─── */
+    aside {
+      background: var(--deep);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    aside::-webkit-scrollbar { width: 4px; }
+    aside::-webkit-scrollbar-track { background: transparent; }
+    aside::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .sidebar-section {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-title {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--sub);
+      margin-bottom: 12px;
+    }
+
+    /* Upload zone */
+    .upload-zone {
+      border: 1.5px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 20px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+    .upload-zone:hover { border-color: var(--accent); background: rgba(232,255,71,0.04); }
+    .upload-zone.dragover { border-color: var(--accent); background: rgba(232,255,71,0.08); }
+    .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .upload-icon {
+      width: 36px; height: 36px; border-radius: 8px;
+      background: var(--surface); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 10px;
+    }
+    .upload-icon svg { width: 16px; height: 16px; color: var(--accent); }
+    .upload-label { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 3px; }
+    .upload-sub { font-size: 11px; color: var(--sub); font-family: var(--mono); }
+
+    /* Preview */
+    .preview-wrap {
+      border-radius: var(--radius); overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      aspect-ratio: 1;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .preview-wrap img { width: 100%; height: 100%; object-fit: cover; display: none; }
+    .preview-placeholder {
+      text-align: center;
+    }
+    .preview-placeholder svg { width: 28px; height: 28px; color: var(--muted); margin-bottom: 6px; }
+    .preview-placeholder p { font-size: 11px; color: var(--sub); font-family: var(--mono); }
+
+    /* Mockup info */
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .info-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 10px;
+    }
+    .info-chip-label { font-family: var(--mono); font-size: 9px; color: var(--sub); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
+    .info-chip-val { font-size: 12px; font-weight: 500; color: var(--text); }
+
+    /* How-to steps */
+    .step-list { display: flex; flex-direction: column; gap: 8px; }
+    .step {
+      display: flex; align-items: flex-start; gap: 10px;
+    }
+    .step-num {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: var(--surface); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 600; color: var(--accent);
+      flex-shrink: 0; margin-top: 1px;
+      font-family: var(--mono);
+    }
+    .step-text { font-size: 12px; color: var(--sub); line-height: 1.5; }
+    .step-text strong { color: var(--text); font-weight: 500; }
+
+    /* Tips */
+    .tip-list { display: flex; flex-direction: column; gap: 6px; }
+    .tip {
+      display: flex; align-items: flex-start; gap: 8px;
+      font-size: 11px; color: var(--sub); line-height: 1.5;
+      font-family: var(--mono);
+    }
+    .tip::before { content: "→"; color: var(--accent); flex-shrink: 0; margin-top: 1px; }
+
+    /* Action buttons in sidebar */
+    .sidebar-actions { display: flex; flex-direction: column; gap: 6px; }
+    .sidebar-btn {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 12px; border-radius: 8px;
+      font-family: var(--font); font-size: 12px; font-weight: 500;
+      cursor: pointer; border: none; transition: all 0.15s;
+      width: 100%;
+    }
+    .sidebar-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+    .sbtn-primary { background: var(--accent); color: #111; }
+    .sbtn-primary:hover { background: var(--accent2); }
+    .sbtn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+    .sbtn-secondary:hover { border-color: var(--muted); }
+    .sbtn-ghost { background: transparent; color: var(--sub); border: 1px solid transparent; }
+    .sbtn-ghost:hover { background: var(--surface); color: var(--text); }
+
+    /* ─── EDITOR AREA ─── */
+    .editor-area {
+      position: relative;
+      background: var(--black);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Editor toolbar */
+    .editor-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px;
+      height: 40px;
+      background: var(--deep);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .toolbar-left { display: flex; align-items: center; gap: 6px; }
+    .toolbar-right { display: flex; align-items: center; gap: 8px; }
+
+    .tb-btn {
+      display: flex; align-items: center; gap: 5px;
+      padding: 4px 10px; border-radius: 5px;
+      font-family: var(--font); font-size: 11px; font-weight: 500;
+      cursor: pointer; border: none; transition: all 0.15s;
+      color: var(--sub); background: transparent;
+    }
+    .tb-btn:hover { background: var(--surface); color: var(--text); }
+    .tb-btn svg { width: 13px; height: 13px; }
+
+    .tb-separator { width: 1px; height: 18px; background: var(--border); }
+
+    .status-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #4ade80;
+      box-shadow: 0 0 6px rgba(74,222,128,0.5);
+    }
+    .status-text { font-family: var(--mono); font-size: 10px; color: var(--sub); }
+
+    /* iframe wrapper */
+    .iframe-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .editor-iframe {
+      width: 100%; height: 100%;
+      border: none;
+      display: block;
+    }
+
+    /* Empty state before mockup selected */
+    .editor-empty {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: var(--black);
+      gap: 16px;
+      z-index: 5;
+    }
+    .editor-empty.hidden { display: none; }
+
+    .empty-icon {
+      width: 80px; height: 80px;
+      border: 1.5px dashed var(--border);
+      border-radius: 20px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 4px;
+    }
+    .empty-icon svg { width: 32px; height: 32px; color: var(--muted); }
+    .empty-title { font-size: 18px; font-weight: 600; color: var(--text); }
+    .empty-sub { font-size: 13px; color: var(--sub); text-align: center; max-width: 300px; line-height: 1.6; }
+    .empty-cta { display: flex; gap: 8px; margin-top: 8px; }
+
+    /* ─── EXPORT MODAL ─── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(4px);
+      z-index: 500;
+      display: none; align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; animation: fadeIn 0.2s ease; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      width: 420px;
+      max-width: 95vw;
+      box-shadow: 0 40px 100px rgba(0,0,0,0.6);
+      animation: slideUp 0.2s ease;
+    }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .modal-title { font-size: 18px; font-weight: 700; }
+    .modal-close {
+      width: 28px; height: 28px; border-radius: 6px;
+      background: var(--muted); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--sub); font-size: 14px; transition: all 0.15s;
+    }
+    .modal-close:hover { background: var(--border); color: var(--text); }
+
+    .format-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+    .format-card {
+      border: 1.5px solid var(--border); border-radius: 8px;
+      padding: 12px 10px; text-align: center; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .format-card:hover { border-color: var(--muted); }
+    .format-card.selected { border-color: var(--accent); background: rgba(232,255,71,0.08); }
+    .format-name { font-size: 14px; font-weight: 700; margin-bottom: 2px; color: var(--text); }
+    .format-desc { font-size: 10px; color: var(--sub); font-family: var(--mono); }
+
+    .quality-row { margin-bottom: 20px; }
+    .quality-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--sub); margin-bottom: 6px; font-family: var(--mono); }
+    .quality-label span { color: var(--accent); font-weight: 500; }
+    input[type=range] {
+      width: 100%; -webkit-appearance: none; appearance: none;
+      height: 4px; background: var(--border); border-radius: 2px; outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 14px; height: 14px;
+      border-radius: 50%; background: var(--accent); cursor: pointer;
+    }
+    .modal-footer { display: flex; gap: 8px; }
+    .modal-footer .btn { flex: 1; justify-content: center; padding: 10px; font-size: 13px; }
+
+    /* ─── TOAST ─── */
+    .toast-wrap {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      z-index: 600; display: flex; flex-direction: column; align-items: center; gap: 8px;
+      pointer-events: none;
+    }
+    .toast {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 18px;
+      font-size: 13px; font-weight: 500;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+      animation: toastIn 0.3s ease;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .toast.success { border-color: rgba(74,222,128,0.4); }
+    .toast.success .toast-icon { color: #4ade80; }
+    .toast-icon svg { width: 14px; height: 14px; }
+
+    /* ─── KEYFRAMES ─── */
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes dropIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    .spinning { animation: spin 1s linear infinite; }
+
+    /* scrollbar global */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════ LOADER ═══════════ -->
+<div id="loader">
+  <div class="loader-logo">
+    <div class="loader-mark">
+      <!-- Visual Graphix mark: 2x2 grid with offset tile (Concept 1) -->
+      <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="2" width="18" height="18" rx="3" fill="#E8FF47"/>
+        <rect x="2" y="24" width="18" height="18" rx="3" fill="#E8FF47" opacity="0.35"/>
+        <rect x="24" y="2" width="18" height="18" rx="3" fill="#E8FF47" opacity="0.15"/>
+        <rect x="24" y="24" width="18" height="18" rx="3" fill="#E8FF47"/>
+        <rect x="2" y="44" width="40" height="2" rx="1" fill="#E8FF47" opacity="0.2"/>
+      </svg>
+    </div>
+    <div class="loader-wordmark">
+      <div class="top">VISUAL</div>
+      <div class="bot">GRAPHIX</div>
+    </div>
+  </div>
+  <div class="loader-bar-wrap">
+    <div class="loader-bar-track">
+      <div class="loader-bar-fill" id="loaderBar"></div>
+    </div>
+    <div class="loader-status" id="loaderStatus">Initialising editor…</div>
+  </div>
+</div>
+
+<!-- ═══════════ APP ═══════════ -->
+<div id="app">
+
+  <!-- ─── NAV ─── -->
+  <nav>
+    <div class="nav-left">
+      <a href="#" class="nav-logo">
+        <svg viewBox="0 0 28 28" fill="none">
+          <rect x="1" y="1" width="11" height="11" rx="2" fill="#E8FF47"/>
+          <rect x="1" y="15" width="11" height="11" rx="2" fill="#E8FF47" opacity="0.35"/>
+          <rect x="15" y="1" width="11" height="11" rx="2" fill="#E8FF47" opacity="0.15"/>
+          <rect x="15" y="15" width="11" height="11" rx="2" fill="#E8FF47"/>
+        </svg>
+        <div class="nav-logo-text">
+          <div class="top">VISUAL</div>
+          <div class="bot">GRAPHIX</div>
+        </div>
+      </a>
+
+      <div class="nav-divider"></div>
+
+      <!-- Mockup selector dropdown -->
+      <div class="mockup-selector" id="mockupSelector" onclick="toggleDropdown(event)">
+        <div class="mockup-thumb">
+          <span id="selectorEmoji" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:13px;">👕</span>
+        </div>
+        <span class="mockup-selector-name" id="selectorName">Classic T-Shirt Mockup</span>
+        <span class="selector-arrow">▾</span>
+
+        <div class="mockup-dropdown" id="mockupDropdown">
+          <div class="dropdown-header">Select Mockup</div>
+          <!-- Items injected by JS -->
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-right">
+      <button class="btn btn-ghost" onclick="openHelp()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.5"/><path d="M8 11v-1M8 8.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg>
+        How to use
+      </button>
+      <button class="btn btn-ghost" onclick="openInPhotopea()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3H3a1 1 0 00-1 1v9a1 1 0 001 1h9a1 1 0 001-1v-3M10 2h4v4M14 2L8 8"/></svg>
+        Open in Photopea
+      </button>
+      <button class="btn btn-accent" onclick="showExportModal()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 2v8M5 7l3 3 3-3M2 11v1a2 2 0 002 2h8a2 2 0 002-2v-1"/></svg>
+        Export
+      </button>
+    </div>
+  </nav>
+
+  <!-- ─── MAIN ─── -->
+  <main>
+
+    <!-- ─── SIDEBAR ─── -->
+    <aside>
+
+      <!-- Upload design -->
+      <div class="sidebar-section">
+        <div class="sidebar-title">Your Design</div>
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" accept="image/*,.psd,.png,.jpg,.jpeg,.svg" id="fileInput" onchange="handleFileUpload(event)">
+          <div class="upload-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1v9M5 3l3-3 3 3M1 11v2a2 2 0 002 2h10a2 2 0 002-2v-2"/></svg>
+          </div>
+          <div class="upload-label">Drop your design here</div>
+          <div class="upload-sub">PNG · JPG · SVG · PSD</div>
+        </div>
+      </div>
+
+      <!-- Preview -->
+      <div class="sidebar-section">
+        <div class="sidebar-title">Preview</div>
+        <div class="preview-wrap" id="previewWrap">
+          <img id="previewImg" alt="Your design preview">
+          <div class="preview-placeholder" id="previewPlaceholder">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            <p>No design uploaded yet</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mockup info -->
+      <div class="sidebar-section" id="mockupInfoSection">
+        <div class="sidebar-title">Mockup Info</div>
+        <div class="info-grid">
+          <div class="info-chip">
+            <div class="info-chip-label">Format</div>
+            <div class="info-chip-val" id="infoFormat">PSD</div>
+          </div>
+          <div class="info-chip">
+            <div class="info-chip-label">Resolution</div>
+            <div class="info-chip-val" id="infoRes">4000×4000</div>
+          </div>
+          <div class="info-chip">
+            <div class="info-chip-label">Type</div>
+            <div class="info-chip-val" id="infoType">Apparel</div>
+          </div>
+          <div class="info-chip">
+            <div class="info-chip-label">License</div>
+            <div class="info-chip-val" id="infoLicense" style="color:var(--accent)">Free</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- How to use -->
+      <div class="sidebar-section">
+        <div class="sidebar-title">How to use</div>
+        <div class="step-list">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-text"><strong>Choose a mockup</strong> from the selector above</div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-text">In the editor, <strong>find the Smart Object layer</strong> (labelled "Your Design Here")</div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-text"><strong>Double-click the Smart Object</strong> and paste your artwork</div>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-text">Press <span class="kbd">Ctrl+S</span> to save and <strong>see it applied</strong> to the mockup</div>
+          </div>
+          <div class="step">
+            <div class="step-num">5</div>
+            <div class="step-text">Click <strong>Export</strong> and download your final image</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tips -->
+      <div class="sidebar-section">
+        <div class="sidebar-title">Pro Tips</div>
+        <div class="tip-list">
+          <div class="tip">Use PNG with transparency for best results</div>
+          <div class="tip">Export at 2× for social media posts</div>
+          <div class="tip">Use File → Save As PNG in Photopea to export</div>
+          <div class="tip">Press <span class="kbd">Ctrl+Z</span> to undo any changes</div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="sidebar-section">
+        <div class="sidebar-title">Actions</div>
+        <div class="sidebar-actions">
+          <button class="sidebar-btn sbtn-primary" onclick="showExportModal()">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 2v8M5 7l3 3 3-3M2 11v1a2 2 0 002 2h8a2 2 0 002-2v-1"/></svg>
+            Export Mockup
+          </button>
+          <button class="sidebar-btn sbtn-secondary" onclick="loadMockup(currentMockup)">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8a6 6 0 1 1 .5 2.4M2 12V8h4"/></svg>
+            Reload Mockup
+          </button>
+          <button class="sidebar-btn sbtn-ghost" onclick="openInPhotopea()">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3H3a1 1 0 00-1 1v9a1 1 0 001 1h9a1 1 0 001-1v-3M10 2h4v4M14 2L8 8"/></svg>
+            Open full Photopea
+          </button>
+        </div>
+      </div>
+
+      <!-- Branding footer -->
+      <div style="padding:16px;margin-top:auto">
+        <div style="font-size:11px;color:var(--sub);font-family:var(--mono);line-height:1.6">
+          Mockups made by <span style="color:var(--accent)">Sagar Mistry</span><br>
+          <a href="https://visualgraphix.store" target="_blank" style="color:var(--sub);text-decoration:none;">visualgraphix.store</a>
+          &nbsp;·&nbsp;
+          <a href="https://instagram.com/visuallgraphix" target="_blank" style="color:var(--sub);text-decoration:none;">@visuallgraphix</a>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ─── EDITOR ─── -->
+    <div class="editor-area">
+      <!-- Toolbar -->
+      <div class="editor-toolbar">
+        <div class="toolbar-left">
+          <div class="status-dot" id="statusDot"></div>
+          <span class="status-text" id="statusText">Editor ready</span>
+          <div class="tb-separator"></div>
+          <button class="tb-btn" onclick="loadMockup(currentMockup)">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8a6 6 0 1 1 .5 2.4M2 12V8h4"/></svg>
+            Reload
+          </button>
+          <button class="tb-btn" onclick="openInPhotopea()">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3H3a1 1 0 00-1 1v9a1 1 0 001 1h9a1 1 0 001-1v-3M10 2h4v4M14 2L8 8"/></svg>
+            New tab
+          </button>
+        </div>
+        <div class="toolbar-right">
+          <span class="status-text" id="mockupLabel">Classic T-Shirt Mockup</span>
+          <div class="tb-separator"></div>
+          <span class="status-text">Powered by Photopea</span>
+        </div>
+      </div>
+
+      <!-- Editor iframe container -->
+      <div class="iframe-wrap">
+        <div class="editor-empty" id="editorEmpty">
+          <div class="empty-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          </div>
+          <div class="empty-title">Select a mockup to begin</div>
+          <div class="empty-sub">Choose from the dropdown above to open a mockup in the editor</div>
+          <div class="empty-cta">
+            <button class="btn btn-ghost" onclick="loadMockup(currentMockup)">Load default mockup</button>
+            <button class="btn btn-accent" onclick="document.getElementById('mockupSelector').click()">Browse mockups ▾</button>
+          </div>
+        </div>
+        <iframe
+          id="photopeaFrame"
+          class="editor-iframe"
+          allowfullscreen
+          title="Photopea Editor">
+        </iframe>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ═══════════ EXPORT MODAL ═══════════ -->
+<div class="modal-overlay" id="exportModal" onclick="closeExportOnOverlay(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Export Mockup</div>
+      <button class="modal-close" onclick="closeExportModal()">✕</button>
+    </div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Format</div>
+    <div class="format-grid">
+      <div class="format-card selected" onclick="selectFormat('PNG',this)">
+        <div class="format-name">PNG</div>
+        <div class="format-desc">Transparent<br>background</div>
+      </div>
+      <div class="format-card" onclick="selectFormat('JPG',this)">
+        <div class="format-name">JPG</div>
+        <div class="format-desc">Smallest<br>file size</div>
+      </div>
+      <div class="format-card" onclick="selectFormat('PSD',this)">
+        <div class="format-name">PSD</div>
+        <div class="format-desc">Editable<br>layers</div>
+      </div>
+    </div>
+
+    <div class="quality-row" id="qualityRow">
+      <div class="quality-label">Quality <span id="qualityVal">100%</span></div>
+      <input type="range" min="10" max="100" value="100" id="qualitySlider" oninput="document.getElementById('qualityVal').textContent=this.value+'%'">
+    </div>
+
+    <div style="background:var(--deep);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:20px">
+      <div style="font-family:var(--mono);font-size:11px;color:var(--sub);line-height:1.6">
+        💡 To export from Photopea: in the editor, go to <strong style="color:var(--text)">File → Export As</strong> and choose your format. Or use the button below to trigger via the editor's save function.
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeExportModal()">Cancel</button>
+      <button class="btn btn-accent" onclick="triggerExport()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 2v8M5 7l3 3 3-3M2 11v1a2 2 0 002 2h8a2 2 0 002-2v-1"/></svg>
+        Download
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ TOAST CONTAINER ═══════════ -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- ═══════════ SCRIPT ═══════════ -->
+<script>
+  /* ─── MOCKUP CATALOG ─────────────────────────────────────
+     Replace the `psd` URLs with your actual hosted PSD files.
+     Host them on: GitHub, Cloudflare R2, AWS S3, or any CDN.
+     Each PSD must have a Smart Object layer named "Your Design Here".
+  ──────────────────────────────────────────────────────── */
+  const MOCKUPS = [
+    {
+      id: 'tshirt-classic',
+      name: 'Classic T-Shirt Mockup',
+      emoji: '👕',
+      type: 'Apparel',
+      res: '4000×4000',
+      license: 'Free',
+      psd: 'https://raw.githubusercontent.com/visualgraphix25-cpu/mockups/main/perfume-glass-bottle-mockup.psd', // ← Replace with your hosted PSD URL
+      demo: true
+    },
+    {
+      id: 'perfume-bottle',
+      name: 'perfume glass bottle mockup',
+      emoji: '🧴',
+      type: 'Bottle',
+      res: '1080x1440',
+      license: 'Free',
+      psd: 'https://raw.githubusercontent.com/visualgraphix25-cpu/mockups/main/perfume-glass-bottle-mockup.psd',
+      demo: true
+    },
+    {
+      id: 'hoodie-pullover',
+      name: 'Pullover Hoodie',
+      emoji: '🧤',
+      type: 'Apparel',
+      res: '4000×4000',
+      license: 'Pro',
+      psd: '',
+      demo: false
+    },
+    {
+      id: 'phone-iphone',
+      name: 'iPhone Mockup',
+      emoji: '📱',
+      type: 'Device',
+      res: '5000×5000',
+      license: 'Free',
+      psd: '',
+      demo: true
+    },
+    {
+      id: 'mug-white',
+      name: 'Ceramic Mug',
+      emoji: '☕',
+      type: 'Product',
+      res: '3000×3000',
+      license: 'Free',
+      psd: '',
+      demo: true
+    },
+    {
+      id: 'poster-a4',
+      name: 'A4 Poster Frame',
+      emoji: '🖼️',
+      type: 'Print',
+      res: '4961×7016',
+      license: 'Pro',
+      psd: '',
+      demo: false
+    },
+  ];
+
+  let currentMockup = MOCKUPS[0];
+  let selectedFormat = 'PNG';
+  let editorLoaded = false;
+
+  /* ─── LOADER ─── */
+  const loaderStatuses = [
+    'Loading assets…',
+    'Preparing editor…',
+    'Connecting to Photopea…',
+    'Almost ready…',
+    'Launching Visual Graphix Editor…'
+  ];
+  let loaderProgress = 0;
+  const loaderBar = document.getElementById('loaderBar');
+  const loaderStatus = document.getElementById('loaderStatus');
+
+  function advanceLoader() {
+    const interval = setInterval(() => {
+      loaderProgress += Math.random() * 22 + 8;
+      if (loaderProgress >= 100) loaderProgress = 100;
+      loaderBar.style.width = loaderProgress + '%';
+      const idx = Math.min(Math.floor(loaderProgress / 22), loaderStatuses.length - 1);
+      loaderStatus.textContent = loaderStatuses[idx];
+      if (loaderProgress >= 100) {
+        clearInterval(interval);
+        setTimeout(finishLoader, 400);
+      }
+    }, 280);
+  }
+
+  function finishLoader() {
+    document.getElementById('loader').classList.add('hide');
+    document.getElementById('app').classList.add('visible');
+    buildDropdown();
+    loadMockup(currentMockup);
+  }
+
+  /* ─── DROPDOWN ─── */
+  function buildDropdown() {
+    const dd = document.getElementById('mockupDropdown');
+    dd.innerHTML = '<div class="dropdown-header">Select Mockup</div>';
+    MOCKUPS.forEach(m => {
+      const el = document.createElement('div');
+      el.className = 'dropdown-item' + (m.id === currentMockup.id ? ' active' : '');
+      el.innerHTML = `
+        <div class="di-thumb">${m.emoji}</div>
+        <div class="di-info">
+          <div class="di-name">${m.name}</div>
+          <div class="di-meta">${m.type} · ${m.res}</div>
+        </div>
+        <span class="di-badge ${m.license==='Free'?'badge-free':'badge-pro'}">${m.license}</span>
+      `;
+      el.onclick = (e) => { e.stopPropagation(); selectMockup(m); };
+      dd.appendChild(el);
+    });
+  }
+
+  function toggleDropdown(e) {
+    e.stopPropagation();
+    document.getElementById('mockupDropdown').classList.toggle('open');
+  }
+
+  document.addEventListener('click', () => {
+    document.getElementById('mockupDropdown').classList.remove('open');
+  });
+
+  function selectMockup(m) {
+    currentMockup = m;
+    document.getElementById('selectorName').textContent = m.name;
+    document.getElementById('selectorEmoji').textContent = m.emoji;
+    document.getElementById('mockupDropdown').classList.remove('open');
+    document.getElementById('infoFormat').textContent = 'PSD';
+    document.getElementById('infoRes').textContent = m.res;
+    document.getElementById('infoType').textContent = m.type;
+    document.getElementById('infoLicense').textContent = m.license;
+    document.getElementById('infoLicense').style.color = m.license === 'Free' ? 'var(--accent)' : 'var(--danger)';
+    document.getElementById('mockupLabel').textContent = m.name;
+    buildDropdown();
+    loadMockup(m);
+  }
+
+  /* ─── LOAD MOCKUP INTO PHOTOPEA ─── */
+  function loadMockup(m) {
+    const frame = document.getElementById('photopeaFrame');
+    const empty = document.getElementById('editorEmpty');
+    setStatus('loading', 'Loading ' + m.name + '…');
+
+    // Build Photopea config
+    const config = {
+      environment: {
+        theme: 1,       // dark theme (1=dark, 0=light)
+        lang: 'en',
+        localsave: false
+      }
+    };
+
+    // If you have a real hosted PSD, use:
+    // config.files = [m.psd];
+    // For demo (no PSD hosted yet), we open Photopea blank with dark theme
+    if (m.psd && m.psd.length > 0) {
+      config.files = [m.psd];
+    }
+
+    const encoded = encodeURIComponent(JSON.stringify(config));
+    const src = `https://www.photopea.com#${encoded}`;
+
+    frame.src = src;
+    empty.classList.add('hidden');
+
+    frame.onload = () => {
+      setStatus('ready', m.name + ' loaded');
+      editorLoaded = true;
+      showToast('✓ ' + m.name + ' opened in editor', 'success');
+    };
+  }
+
+  function setStatus(state, text) {
+    const dot = document.getElementById('statusDot');
+    document.getElementById('statusText').textContent = text;
+    if (state === 'loading') {
+      dot.style.background = '#f59e0b';
+      dot.style.boxShadow = '0 0 6px rgba(245,158,11,0.5)';
+      dot.classList.add('spinning');
+    } else {
+      dot.style.background = '#4ade80';
+      dot.style.boxShadow = '0 0 6px rgba(74,222,128,0.5)';
+      dot.classList.remove('spinning');
+    }
+  }
+
+  /* ─── FILE UPLOAD PREVIEW ─── */
+  function handleFileUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = document.getElementById('previewImg');
+      const placeholder = document.getElementById('previewPlaceholder');
+      img.src = ev.target.result;
+      img.style.display = 'block';
+      placeholder.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+    showToast('Design uploaded — paste it into the Smart Object layer in the editor', 'success');
+  }
+
+  // Drag & drop on upload zone
+  const uploadZone = document.getElementById('uploadZone');
+  uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+  uploadZone.addEventListener('drop', e => {
+    e.preventDefault(); uploadZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) { document.getElementById('fileInput').files = e.dataTransfer.files; handleFileUpload({target:{files:e.dataTransfer.files}}); }
+  });
+
+  /* ─── OPEN IN PHOTOPEA (NEW TAB) ─── */
+  function openInPhotopea() {
+    const config = { environment: { theme: 1, lang: 'en' } };
+    if (currentMockup.psd) config.files = [currentMockup.psd];
+    const url = `https://www.photopea.com#${encodeURIComponent(JSON.stringify(config))}`;
+    window.open(url, '_blank');
+    showToast('Opened Photopea in a new tab', 'success');
+  }
+
+  /* ─── EXPORT MODAL ─── */
+  function showExportModal() { document.getElementById('exportModal').classList.add('open'); }
+  function closeExportModal() { document.getElementById('exportModal').classList.remove('open'); }
+  function closeExportOnOverlay(e) { if (e.target === document.getElementById('exportModal')) closeExportModal(); }
+
+  function selectFormat(fmt, el) {
+    selectedFormat = fmt;
+    document.querySelectorAll('.format-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('qualityRow').style.display = fmt === 'PNG' ? 'none' : 'block';
+    if (fmt === 'PNG') document.getElementById('qualityRow').style.display = 'none';
+    else document.getElementById('qualityRow').style.display = 'block';
+  }
+
+  function triggerExport() {
+    // Send postMessage to Photopea iframe to trigger export
+    const frame = document.getElementById('photopeaFrame');
+    const quality = parseInt(document.getElementById('qualitySlider').value) / 100;
+
+    // Photopea script commands via postMessage
+    let script = '';
+    if (selectedFormat === 'PNG') {
+      script = `app.activeDocument.saveToOE("png");`;
+    } else if (selectedFormat === 'JPG') {
+      script = `app.activeDocument.saveToOE("jpg");`;
+    } else if (selectedFormat === 'PSD') {
+      script = `app.activeDocument.saveToOE("psd");`;
+    }
+
+    try {
+      frame.contentWindow.postMessage(script, '*');
+    } catch(e) {
+      // Fallback: guide user to use File > Export As in Photopea
+    }
+
+    closeExportModal();
+    showToast('Export triggered — use File → Export As in the editor if download doesn\'t start', 'success');
+  }
+
+  /* ─── HELP ─── */
+  function openHelp() {
+    showToast('💡 Double-click the Smart Object layer in Photopea, paste your design, then Ctrl+S', 'success');
+  }
+
+  /* ─── TOAST ─── */
+  function showToast(msg, type='success') {
+    const wrap = document.getElementById('toastWrap');
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    t.innerHTML = `<span class="toast-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="2 7 5.5 10.5 12 4"/></svg></span>${msg}`;
+    wrap.appendChild(t);
+    setTimeout(() => t.style.opacity = '0', 3000);
+    setTimeout(() => t.remove(), 3500);
+  }
+
+  /* ─── KICK OFF LOADER ─── */
+  advanceLoader();
+
+  /* ─── KEYBOARD SHORTCUTS ─── */
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'e') { e.preventDefault(); showExportModal(); }
+    if (e.key === 'Escape') closeExportModal();
+  });
+</script>
+</body>
+</html>
